@@ -1,6 +1,9 @@
 ﻿using AuthJwt.Constants;
 using AuthJwt.Models;
+using AuthJwt.Models.Data;
+using AuthJwt.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -13,10 +16,12 @@ namespace AuthJwt.Controllers
     public class LoginController : ControllerBase
     {
         private readonly IConfiguration _config;
+        private readonly AuthJwtContext _context;
 
-        public LoginController(IConfiguration config)
+        public LoginController(IConfiguration config, AuthJwtContext context)
         {
             _config = config;
+            _context = context;
         }
 
         [HttpGet]
@@ -45,9 +50,9 @@ namespace AuthJwt.Controllers
         }
 
         [HttpPost]
-        public IActionResult Login(LoginUserDTO loginUserDTO)
+        public async Task<IActionResult> Login(LoginUserDTO loginUserDTO)
         {
-            var user = Authenticate(loginUserDTO);
+            var user = await Authenticate(loginUserDTO);
 
             if (user != null)
             {
@@ -58,7 +63,7 @@ namespace AuthJwt.Controllers
             return NotFound("User Not Found");
         }
 
-        private string GenerateToken(UserModel user)
+        private string GenerateToken(User user)
         {
             //Crear los claims
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
@@ -67,7 +72,7 @@ namespace AuthJwt.Controllers
             var claims = new[]
              {
                 new Claim(ClaimTypes.NameIdentifier, user.UserName),
-                new Claim(ClaimTypes.Email, user.Email),
+                //new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.GivenName, user.FirstName),
                 new Claim(ClaimTypes.Surname, user.LastName),
                 new Claim(ClaimTypes.Role, user.Rol),
@@ -83,10 +88,12 @@ namespace AuthJwt.Controllers
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        private UserModel Authenticate(LoginUserDTO loginUserDTO)
+        private async Task<User> Authenticate(LoginUserDTO loginUserDTO)
         {
-            var currentUser = UserConstants.Users.FirstOrDefault(user => user.UserName.ToLower() == loginUserDTO.UserName.ToLower() &&
-                                                                         user.Password == loginUserDTO.Password);
+            //var currentUser = UserConstants.Users.FirstOrDefault(user => user.UserName.ToLower() == loginUserDTO.UserName.ToLower() &&
+            //                                                             user.Password == loginUserDTO.Password);
+            var currentUser = await _context.Users.FirstOrDefaultAsync(user => user.UserName.ToLower() == loginUserDTO.UserName.ToLower() &&
+                                                                                user.Password == loginUserDTO.Password);
             if(currentUser != null) 
             {
                 return currentUser;
